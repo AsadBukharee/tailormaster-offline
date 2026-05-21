@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import { I18nManager, Platform, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -108,10 +107,8 @@ export default function RootLayout() {
         <SettingsProvider>
           <DatabaseProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-                {showSplash && <SplashOverlay />}
-              </KeyboardProvider>
+              <RootLayoutNav />
+              {showSplash && <SplashOverlay />}
             </GestureHandlerRootView>
           </DatabaseProvider>
         </SettingsProvider>

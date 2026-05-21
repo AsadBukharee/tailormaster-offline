@@ -6,10 +6,26 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase, type Customer, type Measurement } from "@/context/DatabaseContext";
+import { useSettings } from "@/context/SettingsContext";
 import { FormField } from "@/components/FormField";
+import { DatePickerModal } from "@/components/DatePickerModal";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { scheduleOrderNotifications } from "@/utils/notifications";
 
 const U = "NotoNastaliqUrdu_400Regular";
+
+const MONTHS_UR = [
+  "جنوری", "فروری", "مارچ", "اپریل", "مئی", "جون",
+  "جولائی", "اگست", "ستمبر", "اکتوبر", "نومبر", "دسمبر",
+];
+
+function formatDateUrdu(iso: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return `${d.getDate()} ${MONTHS_UR[d.getMonth()]} ${d.getFullYear()}`;
+  } catch { return iso; }
+}
 
 type Status = "pending" | "in-progress" | "completed" | "delivered";
 const STATUSES: Status[] = ["pending", "in-progress", "completed", "delivered"];
@@ -24,6 +40,7 @@ export default function AddOrderScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const db = useDatabase();
+  const { notifyDaysBefore } = useSettings();
   const params = useLocalSearchParams<{ customerId?: string }>();
 
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -33,6 +50,7 @@ export default function AddOrderScreen() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>("pending");
   const [dueDate, setDueDate] = useState("");
+  const [dueDateObj, setDueDateObj] = useState<Date>(new Date());
   const [price, setPrice] = useState("");
   const [advance, setAdvance] = useState("");
   const [notes, setNotes] = useState("");
@@ -42,6 +60,7 @@ export default function AddOrderScreen() {
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showMeasPicker, setShowMeasPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const selectCustomer = useCallback(
     (c: Customer) => {
@@ -67,23 +86,26 @@ export default function AddOrderScreen() {
     }, [db, params.customerId])
   );
 
-  const save = () => {
+  const save = async () => {
     let valid = true;
     if (!selectedCustomer) { setCustomerError("گاہک منتخب کریں"); valid = false; }
     if (!description.trim()) { setDescError("تفصیل ضروری ہے"); valid = false; }
     if (!valid) return;
     setSaving(true);
     try {
-      db.addOrder({
+      const order = db.addOrder({
         customerId: selectedCustomer!.id,
         measurementId: selectedMeasurement?.id ?? "",
         description: description.trim(),
         status,
-        dueDate: dueDate.trim(),
+        dueDate: dueDate,
         price: parseFloat(price) || 0,
         advancePayment: parseFloat(advance) || 0,
         notes: notes.trim(),
       });
+      if (dueDate) {
+        scheduleOrderNotifications(order.id, description.trim(), dueDate, notifyDaysBefore).catch(() => {});
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch {
@@ -156,13 +178,35 @@ export default function AddOrderScreen() {
 
         {pickerBtn("حالت", STATUS_LABELS[status], () => setShowStatusPicker(true))}
 
-        <FormField
-          label="ڈیلیوری تاریخ"
-          value={dueDate}
-          onChangeText={setDueDate}
-          placeholder="مثال: 2025-06-15"
-          keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "default"}
-        />
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.foreground, fontFamily: U }]}>ڈیلیوری تاریخ</Text>
+          <TouchableOpacity
+            style={[styles.picker, { backgroundColor: colors.input, borderColor: colors.border }]}
+            onPress={() => {
+              if (Platform.OS === "web") return;
+              setShowDatePicker(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Feather name="calendar" size={16} color={dueDate ? colors.primary : colors.mutedForeground} />
+            <Text
+              style={[
+                styles.pickerText,
+                { color: dueDate ? colors.foreground : colors.mutedForeground, fontFamily: U, flex: 1, textAlign: "right" },
+              ]}
+            >
+              {dueDate ? formatDateUrdu(dueDate) : "تاریخ منتخب کریں..."}
+            </Text>
+            {dueDate ? (
+              <TouchableOpacity onPress={() => setDueDate("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="x" size={14} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            ) : null}
+          </TouchableOpacity>
+          <Text style={[styles.hint, { color: colors.mutedForeground, fontFamily: U }]}>
+            {dueDate ? `${formatDateUrdu(dueDate)} تک` : "ڈیلیوری کی آخری تاریخ"}
+          </Text>
+        </View>
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
@@ -188,18 +232,24 @@ export default function AddOrderScreen() {
           disabled={saving}
           activeOpacity={0.8}
         >
-          <Text style={[styles.saveBtnText, { color: "#FFFFFF", fontFamily: U }]}>
+          <Text style={[styles.saveBtnText, { color: "#FFF", fontFamily: U }]}>
             {saving ? "محفوظ ہو رہا ہے..." : "آرڈر محفوظ کریں"}
           </Text>
         </TouchableOpacity>
       </KeyboardAwareScrollViewCompat>
 
-      <Modal
-        visible={showCustomerPicker}
-        animationType="slide"
-        presentationStyle="formSheet"
-        onRequestClose={() => setShowCustomerPicker(false)}
-      >
+      <DatePickerModal
+        visible={showDatePicker}
+        date={dueDateObj}
+        onConfirm={(d) => {
+          setDueDateObj(d);
+          setDueDate(d.toISOString().split("T")[0]);
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+      />
+
+      <Modal visible={showCustomerPicker} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowCustomerPicker(false)}>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowCustomerPicker(false)}>
@@ -217,12 +267,7 @@ export default function AddOrderScreen() {
                 activeOpacity={0.7}
               >
                 {selectedCustomer?.id === item.id && <Feather name="check" size={18} color={colors.primary} />}
-                <Text
-                  style={[
-                    styles.modalItemText,
-                    { color: colors.foreground, fontFamily: U, flex: 1, textAlign: "right" },
-                  ]}
-                >
+                <Text style={[styles.modalItemText, { color: colors.foreground, fontFamily: U, flex: 1, textAlign: "right" }]}>
                   {item.name}
                 </Text>
               </TouchableOpacity>
@@ -238,12 +283,7 @@ export default function AddOrderScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={showMeasPicker}
-        animationType="slide"
-        presentationStyle="formSheet"
-        onRequestClose={() => setShowMeasPicker(false)}
-      >
+      <Modal visible={showMeasPicker} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowMeasPicker(false)}>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowMeasPicker(false)}>
@@ -257,12 +297,7 @@ export default function AddOrderScreen() {
             activeOpacity={0.7}
           >
             {!selectedMeasurement && <Feather name="check" size={18} color={colors.primary} />}
-            <Text
-              style={[
-                styles.modalItemText,
-                { color: colors.mutedForeground, fontFamily: U, flex: 1, textAlign: "right" },
-              ]}
-            >
+            <Text style={[styles.modalItemText, { color: colors.mutedForeground, fontFamily: U, flex: 1, textAlign: "right" }]}>
               بغیر پیمائش
             </Text>
           </TouchableOpacity>
@@ -277,9 +312,7 @@ export default function AddOrderScreen() {
               <View style={{ flex: 1, alignItems: "flex-end" }}>
                 <Text style={[styles.modalItemText, { color: colors.foreground, fontFamily: U }]}>{m.name}</Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: U, fontSize: 12 }}>
-                  {[m.bazu && `بازو ${m.bazu}`, m.chati && `چھاتی ${m.chati}`, m.kamar && `کمر ${m.kamar}`]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {[m.bazu && `بازو ${m.bazu}`, m.chati && `چھاتی ${m.chati}`, m.kamar && `کمر ${m.kamar}`].filter(Boolean).join(" · ")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -287,12 +320,7 @@ export default function AddOrderScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={showStatusPicker}
-        animationType="slide"
-        presentationStyle="formSheet"
-        onRequestClose={() => setShowStatusPicker(false)}
-      >
+      <Modal visible={showStatusPicker} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setShowStatusPicker(false)}>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowStatusPicker(false)}>
@@ -308,12 +336,7 @@ export default function AddOrderScreen() {
               activeOpacity={0.7}
             >
               {status === s && <Feather name="check" size={18} color={colors.primary} />}
-              <Text
-                style={[
-                  styles.modalItemText,
-                  { color: colors.foreground, fontFamily: U, flex: 1, textAlign: "right" },
-                ]}
-              >
+              <Text style={[styles.modalItemText, { color: colors.foreground, fontFamily: U, flex: 1, textAlign: "right" }]}>
                 {STATUS_LABELS[s]}
               </Text>
             </TouchableOpacity>
@@ -331,6 +354,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, textAlign: "right", writingDirection: "rtl" },
   picker: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, flexDirection: "row", alignItems: "center", minHeight: 48, gap: 8 },
   pickerText: { fontSize: 15 },
+  hint: { fontSize: 12, lineHeight: 22, textAlign: "right" },
   error: { fontSize: 13 },
   row: { flexDirection: "row", gap: 12 },
   saveBtn: { height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 8 },

@@ -22,8 +22,8 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.background,
-          borderTopWidth: isWeb ? 1 : 0,
+          backgroundColor: isIOS ? "transparent" : colors.card,
+          borderTopWidth: 1,
           borderTopColor: colors.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
@@ -31,18 +31,16 @@ export default function TabLayout() {
         tabBarBackground: () =>
           isIOS ? (
             <BlurView
-              intensity={100}
+              intensity={90}
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
-          ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-            />
-          ) : null,
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: isIOS ? "transparent" : colors.card }]} />
+          ),
         tabBarLabelStyle: {
           fontFamily: "NotoNastaliqUrdu_400Regular",
-          fontSize: 11,
+          fontSize: 10,
           marginBottom: 2,
         },
       }}
@@ -51,28 +49,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "گاہک",
-          tabBarIcon: ({ color }) => <Feather name="users" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="users" size={size ?? 20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: "آرڈر",
-          tabBarIcon: ({ color }) => <Feather name="clipboard" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="clipboard" size={size ?? 20} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="khata"
+        options={{
+          title: "خاتہ",
+          tabBarIcon: ({ color, size }) => <Feather name="book-open" size={size ?? 20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="dashboard"
         options={{
           title: "ڈیش بورڈ",
-          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="bar-chart-2" size={size ?? 20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "ترتیبات",
-          tabBarIcon: ({ color }) => <Feather name="settings" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="settings" size={size ?? 20} color={color} />,
         }}
       />
     </Tabs>

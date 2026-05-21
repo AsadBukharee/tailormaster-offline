@@ -47,6 +47,15 @@ export interface Order {
   createdAt: string;
 }
 
+export interface KhataEntry {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  date: string;
+  createdAt: string;
+}
+
 export interface Stats {
   totalCustomers: number;
   activeOrders: number;
@@ -54,10 +63,17 @@ export interface Stats {
   pendingAmount: number;
 }
 
+export interface KhataStats {
+  totalIncome: number;
+  totalExpense: number;
+  net: number;
+}
+
 export interface ExportData {
   customers: Customer[];
   measurements: Measurement[];
   orders: Order[];
+  khata?: KhataEntry[];
 }
 
 export interface DatabaseContextType {
@@ -79,6 +95,10 @@ export interface DatabaseContextType {
   updateOrder: (id: string, data: Omit<Order, "id" | "createdAt" | "customerName">) => void;
   deleteOrder: (id: string) => void;
   getStats: () => Stats;
+  getKhataEntries: () => KhataEntry[];
+  addKhataEntry: (data: Omit<KhataEntry, "id" | "createdAt">) => KhataEntry;
+  deleteKhataEntry: (id: string) => void;
+  getKhataStats: () => KhataStats;
   getExportData: () => ExportData;
   importData: (data: Partial<ExportData>) => void;
 }
@@ -86,7 +106,7 @@ export interface DatabaseContextType {
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
 
 function generateId(): string {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  return Date.now().toString() + Math.random().toString(36).substring(2, 9);
 }
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -120,15 +140,8 @@ function initDatabase() {
         id TEXT PRIMARY KEY,
         customerId TEXT NOT NULL,
         name TEXT DEFAULT 'پیمائش',
-        bazu REAL,
-        tera REAL,
-        gala REAL,
-        chati REAL,
-        kamar REAL,
-        ghera REAL,
-        shilwarLambai REAL,
-        shirtLambai REAL,
-        paincha REAL,
+        bazu REAL, tera REAL, gala REAL, chati REAL, kamar REAL, ghera REAL,
+        shilwarLambai REAL, shirtLambai REAL, paincha REAL,
         notes TEXT DEFAULT '',
         collar TEXT DEFAULT 'collar',
         gheraType TEXT DEFAULT 'square',
@@ -158,6 +171,17 @@ function initDatabase() {
     );
   `);
   try { database.execSync(`ALTER TABLE orders ADD COLUMN measurementId TEXT DEFAULT ''`); } catch {}
+
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS khata (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT 'income',
+      amount REAL NOT NULL DEFAULT 0,
+      description TEXT DEFAULT '',
+      date TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+  `);
 }
 
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
@@ -192,7 +216,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     const customer: Customer = { id: generateId(), ...data, createdAt: new Date().toISOString() };
     if (Platform.OS !== "web") {
       getDb().runSync(
-        "INSERT INTO customers (id, name, phone, address, notes, photoUri, createdAt) VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO customers (id,name,phone,address,notes,photoUri,createdAt) VALUES (?,?,?,?,?,?,?)",
         [customer.id, customer.name, customer.phone, customer.address, customer.notes, customer.photoUri, customer.createdAt]
       );
     }
@@ -202,7 +226,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const updateCustomer = (id: string, data: Omit<Customer, "id" | "createdAt">) => {
     if (Platform.OS === "web") return;
     getDb().runSync(
-      "UPDATE customers SET name=?, phone=?, address=?, notes=?, photoUri=? WHERE id=?",
+      "UPDATE customers SET name=?,phone=?,address=?,notes=?,photoUri=? WHERE id=?",
       [data.name, data.phone, data.address, data.notes, data.photoUri, id]
     );
   };
@@ -324,20 +348,55 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     } catch { return { totalCustomers: 0, activeOrders: 0, totalRevenue: 0, pendingAmount: 0 }; }
   };
 
+  const getKhataEntries = (): KhataEntry[] => {
+    if (Platform.OS === "web") return [];
+    try {
+      return getDb().getAllSync<KhataEntry>("SELECT * FROM khata ORDER BY date DESC, createdAt DESC");
+    } catch { return []; }
+  };
+
+  const addKhataEntry = (data: Omit<KhataEntry, "id" | "createdAt">): KhataEntry => {
+    const entry: KhataEntry = { id: generateId(), ...data, createdAt: new Date().toISOString() };
+    if (Platform.OS !== "web") {
+      getDb().runSync(
+        "INSERT INTO khata (id,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?)",
+        [entry.id, entry.type, entry.amount, entry.description, entry.date, entry.createdAt]
+      );
+    }
+    return entry;
+  };
+
+  const deleteKhataEntry = (id: string) => {
+    if (Platform.OS === "web") return;
+    getDb().runSync("DELETE FROM khata WHERE id = ?", [id]);
+  };
+
+  const getKhataStats = (): KhataStats => {
+    if (Platform.OS === "web") return { totalIncome: 0, totalExpense: 0, net: 0 };
+    try {
+      const database = getDb();
+      const totalIncome = database.getFirstSync<{ total: number | null }>("SELECT SUM(amount) as total FROM khata WHERE type='income'")?.total ?? 0;
+      const totalExpense = database.getFirstSync<{ total: number | null }>("SELECT SUM(amount) as total FROM khata WHERE type='expense'")?.total ?? 0;
+      return { totalIncome, totalExpense, net: totalIncome - totalExpense };
+    } catch { return { totalIncome: 0, totalExpense: 0, net: 0 }; }
+  };
+
   const getExportData = (): ExportData => {
-    if (Platform.OS === "web") return { customers: [], measurements: [], orders: [] };
+    if (Platform.OS === "web") return { customers: [], measurements: [], orders: [], khata: [] };
     try {
       const customers = getDb().getAllSync<Customer>("SELECT * FROM customers ORDER BY createdAt ASC");
       const measurements = getDb().getAllSync<Measurement>("SELECT * FROM measurements ORDER BY updatedAt ASC");
       const orders = getDb().getAllSync<Order>("SELECT * FROM orders ORDER BY createdAt ASC");
-      return { customers, measurements, orders };
-    } catch { return { customers: [], measurements: [], orders: [] }; }
+      const khata = getDb().getAllSync<KhataEntry>("SELECT * FROM khata ORDER BY date ASC");
+      return { customers, measurements, orders, khata };
+    } catch { return { customers: [], measurements: [], orders: [], khata: [] }; }
   };
 
   const importData = (data: Partial<ExportData>) => {
     if (Platform.OS === "web") return;
     const database = getDb();
     try {
+      database.execSync("DELETE FROM khata");
       database.execSync("DELETE FROM orders");
       database.execSync("DELETE FROM measurements");
       database.execSync("DELETE FROM customers");
@@ -366,6 +425,14 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           );
         } catch {}
       }
+      for (const k of (data.khata ?? [])) {
+        try {
+          database.runSync(
+            "INSERT OR REPLACE INTO khata (id,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?)",
+            [k.id, k.type ?? "income", k.amount ?? 0, k.description ?? "", k.date, k.createdAt]
+          );
+        } catch {}
+      }
     } catch (e) { console.error("Import error:", e); }
   };
 
@@ -373,6 +440,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     isReady, getCustomers, getCustomer, addCustomer, updateCustomer, deleteCustomer,
     getMeasurements, getMeasurement, addMeasurement, updateMeasurement, deleteMeasurement,
     getOrders, getOrder, getCustomerOrders, addOrder, updateOrder, deleteOrder, getStats,
+    getKhataEntries, addKhataEntry, deleteKhataEntry, getKhataStats,
     getExportData, importData,
   };
 

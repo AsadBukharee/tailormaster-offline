@@ -12,7 +12,6 @@ import {
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase } from "@/context/DatabaseContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -32,35 +31,25 @@ function NumRow({
   value,
   onChange,
   colors,
+  last,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   colors: any;
+  last?: boolean;
 }) {
   return (
-    <View
-      style={[
-        rowStyles.wrap,
-        { borderBottomColor: colors.border },
-      ]}
-    >
+    <View style={[rowStyles.wrap, last ? { borderBottomWidth: 0 } : { borderBottomColor: colors.border }]}>
       <TextInput
-        style={[
-          rowStyles.input,
-          {
-            backgroundColor: colors.input,
-            color: colors.foreground,
-            borderColor: colors.border,
-            fontFamily: U,
-          },
-        ]}
+        style={[rowStyles.input, { backgroundColor: colors.input, color: colors.foreground, borderColor: colors.border }]}
         value={value}
         onChangeText={onChange}
         keyboardType="decimal-pad"
         placeholder="0"
         placeholderTextColor={colors.mutedForeground}
         textAlign="center"
+        includeFontPadding={false}
       />
       <Text style={[rowStyles.label, { color: colors.foreground, fontFamily: U }]}>{label}</Text>
     </View>
@@ -72,26 +61,27 @@ const rowStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     gap: 12,
   },
   label: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 30,
+    fontSize: 14,
+    lineHeight: 26,
     textAlign: "right",
     writingDirection: "rtl",
   },
   input: {
-    width: 84,
-    height: 46,
+    width: 76,
+    height: 40,
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     fontSize: 16,
     textAlign: "center",
-  },
+    includeFontPadding: false,
+  } as any,
 });
 
 function ToggleField({
@@ -109,13 +99,14 @@ function ToggleField({
 }) {
   return (
     <View style={tStyles.wrap}>
-      <Text style={[tStyles.label, { color: colors.foreground, fontFamily: U }]}>{label}</Text>
       <View style={tStyles.row}>
-        {options.map((opt) => (
+        {options.map((opt, i) => (
           <TouchableOpacity
             key={opt.key}
             style={[
               tStyles.btn,
+              i === 0 && tStyles.btnLeft,
+              i === options.length - 1 && tStyles.btnRight,
               {
                 backgroundColor: value === opt.key ? colors.primary : colors.secondary,
                 borderColor: value === opt.key ? colors.primary : colors.border,
@@ -127,34 +118,39 @@ function ToggleField({
             <Text
               style={[
                 tStyles.btnText,
-                {
-                  color: value === opt.key ? "#FFFFFF" : colors.foreground,
-                  fontFamily: U,
-                },
+                { color: value === opt.key ? "#FFF" : colors.foreground, fontFamily: U },
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
             >
               {opt.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+      <Text style={[tStyles.label, { color: colors.mutedForeground, fontFamily: U }]}>{label}</Text>
     </View>
   );
 }
 
 const tStyles = StyleSheet.create({
-  wrap: { gap: 8 },
-  label: { fontSize: 15, lineHeight: 30, textAlign: "right", writingDirection: "rtl" },
-  row: { flexDirection: "row", gap: 0 },
+  wrap: { gap: 4 },
+  label: { fontSize: 12, lineHeight: 22, textAlign: "right", writingDirection: "rtl" },
+  row: { flexDirection: "row" },
   btn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderRightWidth: 0.5,
+    borderLeftWidth: 0.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnText: { fontSize: 15, lineHeight: 30 },
+  btnLeft: { borderRightWidth: 0.5, borderLeftWidth: 1, borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  btnRight: { borderLeftWidth: 0.5, borderRightWidth: 1, borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  btnText: { fontSize: 12, lineHeight: 22 },
 });
 
 function BoolRow({
@@ -182,13 +178,23 @@ function BoolRow({
 }
 
 const bStyles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10, paddingVertical: 8 },
-  label: { fontSize: 16, lineHeight: 32, writingDirection: "rtl" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  label: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 26,
+    textAlign: "right",
+    writingDirection: "rtl",
+    paddingRight: 10,
+  },
 });
 
 export default function MeasurementsScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const db = useDatabase();
   const { id, measId } = useLocalSearchParams<{ id: string; measId?: string }>();
 
@@ -267,28 +273,18 @@ export default function MeasurementsScreen() {
     }
   };
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
-
   return (
     <KeyboardAwareScrollViewCompat
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 24 }]}
+      contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       bottomOffset={20}
     >
       <View style={styles.nameRow}>
-        <Text style={[styles.nameLabel, { color: colors.foreground, fontFamily: U }]}>نام</Text>
+        <Text style={[styles.nameLabel, { color: colors.mutedForeground, fontFamily: U }]}>نام</Text>
         <TextInput
-          style={[
-            styles.nameInput,
-            {
-              backgroundColor: colors.input,
-              color: colors.foreground,
-              borderColor: colors.border,
-              fontFamily: U,
-            },
-          ]}
+          style={[styles.nameInput, { backgroundColor: colors.input, color: colors.foreground, borderColor: colors.border, fontFamily: U }]}
           value={measName}
           onChangeText={setMeasName}
           placeholder="مثال: قمیض، شلوار قمیض"
@@ -298,7 +294,7 @@ export default function MeasurementsScreen() {
       </View>
 
       <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: U }]}>
-        تمام پیمائش انچ میں
+        پیمائش انچ میں
       </Text>
 
       <View style={[styles.measCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -308,66 +304,52 @@ export default function MeasurementsScreen() {
         <NumRow label="چھاتی" value={chati} onChange={setChati} colors={colors} />
         <NumRow label="کمر" value={kamar} onChange={setKamar} colors={colors} />
         <NumRow label="گھیرا" value={ghera} onChange={setGhera} colors={colors} />
-        <View style={[styles.lastRow, { borderBottomWidth: 0 }]}>
-          <NumRow label="لمبائی شرٹ" value={shirtLambai} onChange={setShirtLambai} colors={colors} />
+        <NumRow label="لمبائی شرٹ" value={shirtLambai} onChange={setShirtLambai} colors={colors} last />
+      </View>
+
+      <View style={styles.togglesRow}>
+        <View style={{ flex: 1 }}>
+          <ToggleField
+            label="کالر / بین"
+            options={[{ key: "collar", label: "کالر" }, { key: "bain", label: "بین" }]}
+            value={collar}
+            onChange={(v) => setCollar(v as "collar" | "bain")}
+            colors={colors}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ToggleField
+            label="گھیرا قسم"
+            options={[{ key: "square", label: "چورس" }, { key: "round", label: "گول" }]}
+            value={gheraType}
+            onChange={(v) => setGheraType(v as "square" | "round")}
+            colors={colors}
+          />
         </View>
       </View>
 
-      <ToggleField
-        label="کالر / بین"
-        options={[{ key: "collar", label: "کالر" }, { key: "bain", label: "بین" }]}
-        value={collar}
-        onChange={(v) => setCollar(v as "collar" | "bain")}
-        colors={colors}
-      />
-
-      <ToggleField
-        label="گھیرا کی قسم"
-        options={[{ key: "square", label: "چورس گھیرا" }, { key: "round", label: "گول گھیرا" }]}
-        value={gheraType}
-        onChange={(v) => setGheraType(v as "square" | "round")}
-        colors={colors}
-      />
-
-      <View style={[styles.shirtSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.shirtHeader}>
-          <Feather name="scissors" size={14} color={colors.primary} style={{ opacity: 0.7 }} />
-          <Text style={[styles.shirtLabel, { color: colors.mutedForeground, fontFamily: U }]}>
-            شرٹ کی اضافی ترتیبات
-          </Text>
-        </View>
+      <View style={[styles.boolCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <BoolRow label="شرٹ فرنٹ جیب" value={shirtFrontJaib} onChange={setShirtFrontJaib} colors={colors} />
       </View>
 
-      <View style={[styles.shilwarDivider, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}>
-        <View style={styles.shilwarLine} />
+      <View style={[styles.shilwarDivider, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "50" }]}>
+        <Feather name="scissors" size={14} color={colors.primary} />
         <Text style={[styles.shilwarDividerText, { color: colors.primary, fontFamily: U }]}>شلوار</Text>
-        <View style={styles.shilwarLine} />
       </View>
 
       <View style={[styles.measCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <NumRow label="لمبائی شلوار" value={shilwarLambai} onChange={setShilwarLambai} colors={colors} />
-        <View style={[styles.lastRow, { borderBottomWidth: 0 }]}>
-          <NumRow label="پائنچہ" value={paincha} onChange={setPaincha} colors={colors} />
-        </View>
+        <NumRow label="پائنچہ" value={paincha} onChange={setPaincha} colors={colors} last />
       </View>
 
-      <View style={[styles.shilwarSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.boolCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <BoolRow label="شلوار جیب" value={shilwarJaib} onChange={setShilwarJaib} colors={colors} />
       </View>
 
       <View style={styles.notesWrap}>
-        <Text style={[styles.nameLabel, { color: colors.foreground, fontFamily: U }]}>اضافی تفصیل</Text>
+        <Text style={[styles.nameLabel, { color: colors.mutedForeground, fontFamily: U }]}>اضافی تفصیل</Text>
         <TextInput
-          style={[
-            styles.notesInput,
-            {
-              backgroundColor: colors.input,
-              color: colors.foreground,
-              borderColor: colors.border,
-              fontFamily: U,
-            },
-          ]}
+          style={[styles.notesInput, { backgroundColor: colors.input, color: colors.foreground, borderColor: colors.border, fontFamily: U }]}
           value={notes}
           onChangeText={setNotes}
           placeholder="اضافی تفصیل..."
@@ -384,7 +366,7 @@ export default function MeasurementsScreen() {
         disabled={saving}
         activeOpacity={0.8}
       >
-        <Text style={[styles.saveBtnText, { color: "#FFFFFF", fontFamily: U }]}>
+        <Text style={[styles.saveBtnText, { color: "#FFF", fontFamily: U }]}>
           {saving ? "محفوظ ہو رہا ہے..." : measId ? "پیمائش اپ ڈیٹ کریں" : "پیمائش محفوظ کریں"}
         </Text>
       </TouchableOpacity>
@@ -394,68 +376,40 @@ export default function MeasurementsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16, gap: 16 },
-  sectionLabel: { fontSize: 13, lineHeight: 26, textAlign: "right", writingDirection: "rtl" },
-  nameRow: { gap: 6 },
-  nameLabel: { fontSize: 15, lineHeight: 30, textAlign: "right", writingDirection: "rtl" },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
+  sectionLabel: { fontSize: 12, lineHeight: 22, textAlign: "right", writingDirection: "rtl" },
+  nameRow: { gap: 4 },
+  nameLabel: { fontSize: 13, lineHeight: 24, textAlign: "right", writingDirection: "rtl" },
   nameInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    minHeight: 54,
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 15, minHeight: 48,
   },
   measCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingTop: 4,
-    paddingBottom: 4,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingTop: 2, paddingBottom: 2,
   },
-  lastRow: { borderBottomWidth: 0 },
+  togglesRow: { flexDirection: "row", gap: 10 },
+  boolCard: {
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 2,
+  },
   shilwarDivider: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    gap: 8,
     borderWidth: 1,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
   },
-  shilwarLine: { flex: 1, height: 1, backgroundColor: "transparent" },
-  shilwarDividerText: { fontSize: 16, lineHeight: 32 },
-  shilwarSection: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-  },
-  shirtSection: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-  },
-  shirtHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingTop: 10,
-    paddingBottom: 4,
-    justifyContent: "flex-end",
-  },
-  shirtLabel: { fontSize: 13, writingDirection: "rtl" },
-  notesWrap: { gap: 6 },
+  shilwarDividerText: { fontSize: 15, lineHeight: 28 },
+  notesWrap: { gap: 4 },
   notesInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
-    fontSize: 15,
-    minHeight: 100,
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10,
+    fontSize: 14, minHeight: 90,
   },
-  saveBtn: { height: 56, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 4 },
-  saveBtnText: { fontSize: 18, lineHeight: 36 },
+  saveBtn: { height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  saveBtnText: { fontSize: 17, lineHeight: 32 },
 });

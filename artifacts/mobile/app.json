@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#98541D"
+      "backgroundColor": "#A0522D"
     },
     "ios": {
       "supportsTablet": false,
@@ -20,7 +20,15 @@
       }
     },
     "android": {
-      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.aqeelsaab.mobile"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -33,7 +41,6 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
       [
         "expo-sqlite",
         {
@@ -45,11 +52,25 @@
         {
           "photosPermission": "گاہک کی تصویر منتخب کریں"
         }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#A0522D",
+          "sounds": []
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "48dd1149-bf01-4e8a-b913-23ed33078d38"
+      }
     }
   }
 }
