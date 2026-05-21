@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   Platform,
@@ -18,10 +18,15 @@ const MONTHS_UR = [
 ];
 
 function formatDateUrdu(date: Date): string {
-  const d = date.getDate();
-  const m = MONTHS_UR[date.getMonth()];
-  const y = date.getFullYear();
-  return `${d} ${m} ${y}`;
+  return `${date.getDate()} ${MONTHS_UR[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function formatTimeUrdu(date: Date): string {
+  const h = date.getHours();
+  const min = date.getMinutes().toString().padStart(2, "0");
+  const period = h >= 12 ? "شام" : "صبح";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${min} ${period}`;
 }
 
 interface Props {
@@ -34,28 +39,57 @@ interface Props {
 export function DatePickerModal({ visible, date, onConfirm, onCancel }: Props) {
   const colors = useColors();
   const [selected, setSelected] = useState<Date>(date);
+  const [step, setStep] = useState<"date" | "time">("date");
+
+  // Reset state whenever the modal opens
+  useEffect(() => {
+    if (visible) {
+      setSelected(date);
+      setStep("date");
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (Platform.OS === "web") return null;
 
+  // ─── Android: native pickers shown inline (no modal chrome needed) ───────
   if (Platform.OS === "android") {
     if (!visible) return null;
+    if (step === "date") {
+      return (
+        <DateTimePicker
+          value={selected}
+          mode="date"
+          display="default"
+          minimumDate={new Date()}
+          onChange={(event: DateTimePickerEvent, d?: Date) => {
+            if (event.type === "set" && d) {
+              setSelected(d);
+              setStep("time");
+            } else {
+              onCancel();
+            }
+          }}
+        />
+      );
+    }
     return (
       <DateTimePicker
         value={selected}
-        mode="date"
+        mode="time"
         display="default"
-        minimumDate={new Date()}
         onChange={(event: DateTimePickerEvent, d?: Date) => {
           if (event.type === "set" && d) {
             onConfirm(d);
           } else {
-            onCancel();
+            // Back to date step
+            setStep("date");
           }
         }}
       />
     );
   }
 
+  // ─── iOS: bottom sheet modal ─────────────────────────────────────────────
   return (
     <Modal
       visible={visible}
@@ -76,18 +110,20 @@ export function DatePickerModal({ visible, date, onConfirm, onCancel }: Props) {
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
           <Text style={[styles.title, { color: colors.foreground, fontFamily: U }]}>
-            تاریخ منتخب کریں
+            {step === "date" ? "تاریخ منتخب کریں" : "وقت منتخب کریں"}
           </Text>
 
           <Text style={[styles.preview, { color: colors.primary, fontFamily: U }]}>
-            {formatDateUrdu(selected)}
+            {step === "date"
+              ? formatDateUrdu(selected)
+              : `${formatDateUrdu(selected)}  ${formatTimeUrdu(selected)}`}
           </Text>
 
           <DateTimePicker
             value={selected}
-            mode="date"
+            mode={step}
             display="spinner"
-            minimumDate={new Date()}
+            minimumDate={step === "date" ? new Date() : undefined}
             onChange={(_: DateTimePickerEvent, d?: Date) => {
               if (d) setSelected(d);
             }}
@@ -97,15 +133,25 @@ export function DatePickerModal({ visible, date, onConfirm, onCancel }: Props) {
           <View style={styles.btnRow}>
             <TouchableOpacity
               style={[styles.btn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-              onPress={onCancel}
+              onPress={step === "date" ? onCancel : () => setStep("date")}
             >
-              <Text style={[styles.btnText, { color: colors.foreground, fontFamily: U }]}>منسوخ</Text>
+              <Text style={[styles.btnText, { color: colors.foreground, fontFamily: U }]}>
+                {step === "date" ? "منسوخ" : "پیچھے"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.btn, { backgroundColor: colors.primary }]}
-              onPress={() => onConfirm(selected)}
+              onPress={() => {
+                if (step === "date") {
+                  setStep("time");
+                } else {
+                  onConfirm(selected);
+                }
+              }}
             >
-              <Text style={[styles.btnText, { color: "#FFF", fontFamily: U }]}>تصدیق کریں</Text>
+              <Text style={[styles.btnText, { color: "#FFF", fontFamily: U }]}>
+                {step === "date" ? "آگے ←" : "تصدیق کریں"}
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -143,9 +189,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   preview: {
-    fontSize: 22,
-    lineHeight: 44,
-    marginBottom: 8,
+    fontSize: 20,
+    lineHeight: 40,
+    marginBottom: 4,
   },
   btnRow: {
     flexDirection: "row",

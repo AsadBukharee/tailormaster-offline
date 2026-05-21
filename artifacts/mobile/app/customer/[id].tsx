@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: 8, marginTop: 12, flexWrap: "wrap", justifyContent: "center" },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10 },
   actionBtnText: { fontSize: 15, lineHeight: 30 },
-  deleteBtn: { width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  deleteBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   sectionTitle: { fontSize: 17, lineHeight: 34, textAlign: "right", writingDirection: "rtl", marginBottom: 10 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginBottom: 8 },
   sectionTitle2: { fontSize: 17, lineHeight: 34 },

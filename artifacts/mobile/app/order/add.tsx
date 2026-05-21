@@ -23,7 +23,12 @@ function formatDateUrdu(iso: string): string {
   if (!iso) return "";
   try {
     const d = new Date(iso);
-    return `${d.getDate()} ${MONTHS_UR[d.getMonth()]} ${d.getFullYear()}`;
+    const dateStr = `${d.getDate()} ${MONTHS_UR[d.getMonth()]} ${d.getFullYear()}`;
+    const h = d.getHours();
+    const min = d.getMinutes().toString().padStart(2, "0");
+    const period = h >= 12 ? "شام" : "صبح";
+    const hour12 = h % 12 || 12;
+    return `${dateStr}  ${hour12}:${min} ${period}`;
   } catch { return iso; }
 }
 
@@ -116,18 +121,20 @@ export default function AddOrderScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const pickerBtn = (label: string, value: string, onPress: () => void, error?: string) => (
+  const pickerBtn = (label: string, value: string, onPress: () => void, error?: string, disabled?: boolean) => (
     <View style={styles.field}>
       <Text style={[styles.label, { color: colors.foreground, fontFamily: U }]}>{label}</Text>
       <TouchableOpacity
         style={[
           styles.picker,
           { backgroundColor: colors.input, borderColor: error ? colors.destructive : colors.border },
+          disabled && { opacity: 0.7 },
         ]}
         onPress={onPress}
         activeOpacity={0.7}
+        disabled={disabled}
       >
-        <Feather name="chevron-down" size={16} color={colors.mutedForeground} />
+        {!disabled && <Feather name="chevron-down" size={16} color={colors.mutedForeground} />}
         <Text
           style={[
             styles.pickerText,
@@ -155,7 +162,8 @@ export default function AddOrderScreen() {
           "گاہک *",
           selectedCustomer ? selectedCustomer.name : "گاہک منتخب کریں...",
           () => setShowCustomerPicker(true),
-          customerError
+          customerError,
+          !!params.customerId
         )}
 
         {customerMeasurements.length > 0 &&
@@ -243,7 +251,7 @@ export default function AddOrderScreen() {
         date={dueDateObj}
         onConfirm={(d) => {
           setDueDateObj(d);
-          setDueDate(d.toISOString().split("T")[0]);
+          setDueDate(d.toISOString());
           setShowDatePicker(false);
         }}
         onCancel={() => setShowDatePicker(false)}

@@ -7,9 +7,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase, type Customer } from "@/context/DatabaseContext";
 import { FormField } from "@/components/FormField";
+import { DatePickerModal } from "@/components/DatePickerModal";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const U = "NotoNastaliqUrdu_400Regular";
+
+const MONTHS_UR = [
+  "جنوری", "فروری", "مارچ", "اپریل", "مئی", "جون",
+  "جولائی", "اگست", "ستمبر", "اکتوبر", "نومبر", "دسمبر",
+];
+
+function formatDateUrdu(iso: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const dateStr = `${d.getDate()} ${MONTHS_UR[d.getMonth()]} ${d.getFullYear()}`;
+    const h = d.getHours();
+    const min = d.getMinutes().toString().padStart(2, "0");
+    const period = h >= 12 ? "شام" : "صبح";
+    const hour12 = h % 12 || 12;
+    return `${dateStr}  ${hour12}:${min} ${period}`;
+  } catch { return iso; }
+}
 
 type Status = "pending" | "in-progress" | "completed" | "delivered";
 const STATUSES: Status[] = ["pending", "in-progress", "completed", "delivered"];
@@ -32,6 +51,7 @@ export default function EditOrderScreen() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>("pending");
   const [dueDate, setDueDate] = useState("");
+  const [dueDateObj, setDueDateObj] = useState<Date>(new Date());
   const [price, setPrice] = useState("");
   const [advance, setAdvance] = useState("");
   const [notes, setNotes] = useState("");
@@ -39,6 +59,7 @@ export default function EditOrderScreen() {
   const [saving, setSaving] = useState(false);
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,7 +69,9 @@ export default function EditOrderScreen() {
       if (o) {
         setDescription(o.description);
         setStatus(o.status);
-        setDueDate(o.dueDate ?? "");
+        const dd = o.dueDate ?? "";
+        setDueDate(dd);
+        setDueDateObj(dd ? new Date(dd) : new Date());
         setMeasurementId(o.measurementId ?? "");
         setPrice(o.price ? String(o.price) : "");
         setAdvance(o.advancePayment ? String(o.advancePayment) : "");
@@ -137,12 +160,33 @@ export default function EditOrderScreen() {
           </TouchableOpacity>
         </View>
 
-        <FormField
-          label="ڈیلیوری تاریخ"
-          value={dueDate}
-          onChangeText={setDueDate}
-          placeholder="مثال: 2025-06-15"
-        />
+        {/* ─── Delivery date + time picker ─────────────────────────────────── */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.foreground, fontFamily: U }]}>ڈیلیوری تاریخ و وقت</Text>
+          <TouchableOpacity
+            style={[styles.picker, { backgroundColor: colors.input, borderColor: colors.border }]}
+            onPress={() => { if (Platform.OS !== "web") setShowDatePicker(true); }}
+            activeOpacity={0.7}
+          >
+            <Feather name="calendar" size={16} color={dueDate ? colors.primary : colors.mutedForeground} />
+            <Text
+              style={[
+                styles.pickerText,
+                { color: dueDate ? colors.foreground : colors.mutedForeground, fontFamily: U, flex: 1, textAlign: "right" },
+              ]}
+            >
+              {dueDate ? formatDateUrdu(dueDate) : "تاریخ منتخب کریں..."}
+            </Text>
+            {dueDate ? (
+              <TouchableOpacity onPress={() => setDueDate("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="x" size={14} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            ) : null}
+          </TouchableOpacity>
+          <Text style={[styles.hint, { color: colors.mutedForeground, fontFamily: U }]}>
+            {dueDate ? `${formatDateUrdu(dueDate)} تک` : "ڈیلیوری کی آخری تاریخ اور وقت"}
+          </Text>
+        </View>
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
@@ -174,6 +218,19 @@ export default function EditOrderScreen() {
         </TouchableOpacity>
       </KeyboardAwareScrollViewCompat>
 
+      {/* ─── Date+time picker ───────────────────────────────────────────────── */}
+      <DatePickerModal
+        visible={showDatePicker}
+        date={dueDateObj}
+        onConfirm={(d) => {
+          setDueDateObj(d);
+          setDueDate(d.toISOString());
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+      />
+
+      {/* ─── Customer picker ────────────────────────────────────────────────── */}
       <Modal
         visible={showCustomerPicker}
         animationType="slide"
@@ -211,6 +268,7 @@ export default function EditOrderScreen() {
         </View>
       </Modal>
 
+      {/* ─── Status picker ──────────────────────────────────────────────────── */}
       <Modal
         visible={showStatusPicker}
         animationType="slide"
@@ -255,6 +313,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, textAlign: "right", writingDirection: "rtl" },
   picker: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, flexDirection: "row", alignItems: "center", minHeight: 48, gap: 8 },
   pickerText: { fontSize: 15 },
+  hint: { fontSize: 12, lineHeight: 22, textAlign: "right" },
   row: { flexDirection: "row", gap: 12 },
   saveBtn: { height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 8 },
   saveBtnText: { fontSize: 18 },

@@ -120,7 +120,10 @@ export default function OrderDetailScreen() {
 
   const balance = order.price - order.advancePayment;
   const dueDate = order.dueDate
-    ? new Date(order.dueDate).toLocaleDateString("ur-PK", { day: "numeric", month: "long", year: "numeric" })
+    ? new Date(order.dueDate).toLocaleString("ur-PK", {
+        day: "numeric", month: "long", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
     : "—";
   const nextStatus = STATUS_NEXT[order.status];
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;

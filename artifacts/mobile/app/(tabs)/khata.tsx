@@ -144,7 +144,7 @@ export default function KhataScreen() {
         contentContainerStyle={{ paddingTop: topPadding + 16, paddingBottom: bottomPadding + 100, paddingHorizontal: 16, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: U }]}>خاتہ</Text>
+        <Text style={[styles.title, { color: colors.foreground, fontFamily: U }]}>کھاتا</Text>
 
         <View style={[styles.summaryRow]}>
           <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.shadowColor }]}>

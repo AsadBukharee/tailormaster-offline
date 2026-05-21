@@ -17,10 +17,12 @@ export function OrderCard({ order, onPress, showCustomer = true }: OrderCardProp
   const scale = useRef(new Animated.Value(1)).current;
   const balance = order.price - order.advancePayment;
   const dueDate = order.dueDate
-    ? new Date(order.dueDate).toLocaleDateString("ur-PK", {
+    ? new Date(order.dueDate).toLocaleString("ur-PK", {
         day: "numeric",
         month: "short",
         year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       })
     : null;
 
