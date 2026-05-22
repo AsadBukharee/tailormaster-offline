@@ -3,6 +3,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -27,7 +28,12 @@ const NOTIFY_OPTIONS = [1, 2, 3, 5, 7];
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { themeMode, setThemeMode, notifyDaysBefore, setNotifyDaysBefore } = useSettings();
+  const {
+    themeMode, setThemeMode,
+    notifyDaysBefore, setNotifyDaysBefore,
+    notifyDaysEnabled, setNotifyDaysEnabled,
+    notifyHoursEnabled, setNotifyHoursEnabled,
+  } = useSettings();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 : 0;
@@ -108,10 +114,12 @@ export default function SettingsScreen() {
                 {
                   backgroundColor: notifyDaysBefore === days ? colors.primary : colors.secondary,
                   borderColor: notifyDaysBefore === days ? colors.primary : colors.border,
+                  opacity: notifyDaysEnabled ? 1 : 0.5,
                 },
               ]}
-              onPress={() => setNotifyDaysBefore(days)}
+              onPress={() => notifyDaysEnabled && setNotifyDaysBefore(days)}
               activeOpacity={0.7}
+              disabled={!notifyDaysEnabled}
             >
               <Text
                 style={[
@@ -126,6 +134,30 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.optionRow}>
+          <Switch
+            value={notifyDaysEnabled}
+            onValueChange={setNotifyDaysEnabled}
+            trackColor={{ false: colors.secondary, true: colors.primary }}
+          />
+          <Text style={[styles.optionLabel, { color: colors.foreground, fontFamily: U }]}>
+            دنوں کی اطلاع (نوٹیفیکیشن)
+          </Text>
+        </View>
+
+        <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.optionRow}>
+          <Switch
+            value={notifyHoursEnabled}
+            onValueChange={setNotifyHoursEnabled}
+            trackColor={{ false: colors.secondary, true: colors.primary }}
+          />
+          <Text style={[styles.optionLabel, { color: colors.foreground, fontFamily: U }]}>
+            30 منٹ کی اطلاع
+          </Text>
         </View>
       </View>
 

@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase } from "@/context/DatabaseContext";
+import { saveCustomerPhoto, cleanupOldPhotos } from "@/utils/photoStorage";
 import { FormField } from "@/components/FormField";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -48,16 +49,18 @@ export default function EditCustomerScreen() {
     if (!result.canceled) setPhotoUri(result.assets[0].uri);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { setNameError("نام ضروری ہے"); return; }
     setSaving(true);
     try {
+      const persistedUri = photoUri ? await saveCustomerPhoto(photoUri, id!) : "";
+      await cleanupOldPhotos(id!, persistedUri);
       db.updateCustomer(id!, {
         name: name.trim(),
         phone: phone.trim(),
         address: address.trim(),
         notes: notes.trim(),
-        photoUri,
+        photoUri: persistedUri,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();

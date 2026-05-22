@@ -211,11 +211,22 @@ export default function CustomerDetailScreen() {
               styles.actionBtn,
               { backgroundColor: colors.secondary, borderColor: colors.border, borderWidth: 1 },
             ]}
+            onPress={() => router.push({ pathname: `/customer/${id}/khata` as any })}
+            activeOpacity={0.8}
+          >
+            <Feather name="book" size={16} color={colors.primary} />
+            <Text style={[styles.actionBtnText, { color: colors.primary, fontFamily: U }]}>کھاتا</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              { backgroundColor: colors.secondary, borderColor: colors.border, borderWidth: 1 },
+            ]}
             onPress={() => router.push({ pathname: `/customer/${id}/measurements` as any })}
             activeOpacity={0.8}
           >
             <Feather name="ruler" size={16} color={colors.primary} />
-            <Text style={[styles.actionBtnText, { color: colors.primary, fontFamily: U }]}>پیمائش شامل</Text>
+            <Text style={[styles.actionBtnText, { color: colors.primary, fontFamily: U }]}>ناپ+</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[

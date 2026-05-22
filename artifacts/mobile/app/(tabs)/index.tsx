@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, lineHeight: 30, paddingVertical: 10 },
+  searchInput: { flex: 1, fontSize: 15, lineHeight: 30, paddingVertical: 0, height: 50, textAlignVertical: "center" },
   list: { paddingHorizontal: 16, paddingTop: 8 },
   listEmpty: { flex: 1 },
   fab: {

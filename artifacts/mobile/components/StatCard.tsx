@@ -61,5 +61,5 @@ const styles = StyleSheet.create({
   tappable: { elevation: 1 },
   iconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 2 },
   value: { fontSize: 22, lineHeight: 32 },
-  label: { fontSize: 13, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
+  label: { fontSize: 13, lineHeight: 28, textAlign: "right", writingDirection: "rtl", paddingBottom: 4 },
 });

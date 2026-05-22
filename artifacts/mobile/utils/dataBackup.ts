@@ -21,7 +21,8 @@ export async function exportBackup(db: DatabaseContextType): Promise<void> {
     exportedAt: new Date().toISOString(),
     ...data,
   };
-  const json = JSON.stringify(backup, null, 2);
+  // Compact JSON for smaller file size
+  const json = JSON.stringify(backup);
   const fileName = `tailormaster_backup_${Date.now()}.json`;
 
   if (Platform.OS === "web") {
@@ -35,22 +36,39 @@ export async function exportBackup(db: DatabaseContextType): Promise<void> {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      Alert.alert("کامیاب", "بیک اپ ڈاؤن لوڈ ہو گیا");
     } catch {
       Alert.alert("خرابی", "بیک اپ برآمد نہیں ہو سکا");
     }
     return;
   }
 
-  const dir = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
-  if (!dir) throw new Error("No writable directory available");
-  const path = dir + fileName;
-  await FileSystem.writeAsStringAsync(path, json, { encoding: FileSystem.EncodingType.UTF8 });
-  const canShare = await Sharing.isAvailableAsync();
-  if (!canShare) {
-    Alert.alert("خرابی", "اس آلے پر شیئر کرنا ممکن نہیں");
-    return;
+  // ─── Android / iOS: write to cache then share ────────────────────────────
+  try {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) {
+      Alert.alert("خرابی", "فائل سسٹم دستیاب نہیں");
+      return;
+    }
+    const path = cacheDir + fileName;
+    await FileSystem.writeAsStringAsync(path, json, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    // Use Sharing to let user choose where to save / send
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) {
+      Alert.alert("خرابی", "اس آلے پر شیئر کرنا ممکن نہیں");
+      return;
+    }
+    await Sharing.shareAsync(path, {
+      mimeType: "application/json",
+      dialogTitle: "بیک اپ محفوظ کریں",
+    });
+  } catch (e) {
+    console.error("Export error:", e);
+    Alert.alert("خرابی", "بیک اپ برآمد نہیں ہو سکا");
   }
-  await Sharing.shareAsync(path, { mimeType: "application/json", dialogTitle: "بیک اپ شیئر کریں" });
 }
 
 export async function importBackup(db: DatabaseContextType): Promise<{
@@ -58,7 +76,7 @@ export async function importBackup(db: DatabaseContextType): Promise<{
   message: string;
   counts?: { customers: number; measurements: number; orders: number };
 }> {
-  // ─── Web: use browser File API ───────────────────────────────────────────
+  // ─── Web ──────────────────────────────────────────────────────────────────
   if (Platform.OS === "web") {
     return new Promise((resolve) => {
       try {
@@ -67,51 +85,31 @@ export async function importBackup(db: DatabaseContextType): Promise<{
         input.accept = ".json,application/json,text/plain";
         input.onchange = async (e: any) => {
           const file: File | undefined = e.target?.files?.[0];
-          if (!file) {
-            resolve({ success: false, message: "منسوخ" });
-            return;
-          }
+          if (!file) { resolve({ success: false, message: "منسوخ" }); return; }
           try {
             const text = await file.text();
-            let data: BackupData;
-            try {
-              data = JSON.parse(text);
-            } catch {
-              resolve({ success: false, message: "فائل درست نہیں — JSON پارس نہیں ہو سکا" });
-              return;
-            }
-            if (!Array.isArray(data.customers) || !Array.isArray(data.orders)) {
-              resolve({ success: false, message: "فائل درست نہیں — ڈیٹا نہیں ملا" });
-              return;
-            }
-            const counts = {
-              customers: data.customers.length,
-              measurements: (data.measurements ?? []).length,
-              orders: data.orders.length,
-            };
-            db.importData(data);
-            resolve({ success: true, message: "بیک اپ بحال ہو گیا", counts });
-          } catch {
-            resolve({ success: false, message: "فائل پڑھنے میں خرابی" });
-          }
+            const parsed = parseAndValidate(text);
+            if (!parsed.valid) { resolve({ success: false, message: parsed.error! }); return; }
+            db.importData(parsed.data!);
+            resolve({
+              success: true,
+              message: "بیک اپ بحال ہو گیا",
+              counts: {
+                customers: parsed.data!.customers.length,
+                measurements: (parsed.data!.measurements ?? []).length,
+                orders: parsed.data!.orders.length,
+              },
+            });
+          } catch { resolve({ success: false, message: "فائل پڑھنے میں خرابی" }); }
         };
-        // Dismiss without selecting triggers no onchange — handle via focus trick
-        const onFocus = () => {
-          window.removeEventListener("focus", onFocus);
-          setTimeout(() => {
-            if (document.body.contains(input)) document.body.removeChild(input);
-          }, 800);
-        };
-        window.addEventListener("focus", onFocus);
         document.body.appendChild(input);
         input.click();
-      } catch {
-        resolve({ success: false, message: "فائل منتخب کرنے میں خرابی" });
-      }
+        setTimeout(() => { if (document.body.contains(input)) document.body.removeChild(input); }, 5000);
+      } catch { resolve({ success: false, message: "فائل منتخب کرنے میں خرابی" }); }
     });
   }
 
-  // ─── Mobile: DocumentPicker + FileSystem ─────────────────────────────────
+  // ─── Android / iOS ────────────────────────────────────────────────────────
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: ["application/json", "text/plain", "*/*"],
@@ -120,7 +118,7 @@ export async function importBackup(db: DatabaseContextType): Promise<{
     if (result.canceled) return { success: false, message: "منسوخ" };
 
     const asset = result.assets?.[0];
-    if (!asset) return { success: false, message: "فائل نہیں ملی" };
+    if (!asset?.uri) return { success: false, message: "فائل نہیں ملی" };
 
     let json: string;
     try {
@@ -131,26 +129,43 @@ export async function importBackup(db: DatabaseContextType): Promise<{
       return { success: false, message: "فائل پڑھنے میں خرابی" };
     }
 
-    let data: BackupData;
-    try {
-      data = JSON.parse(json);
-    } catch {
-      return { success: false, message: "فائل درست نہیں — JSON پارس نہیں ہو سکا" };
-    }
+    const parsed = parseAndValidate(json);
+    if (!parsed.valid) return { success: false, message: parsed.error! };
 
-    if (!Array.isArray(data.customers) || !Array.isArray(data.orders)) {
-      return { success: false, message: "فائل درست نہیں — ڈیٹا نہیں ملا" };
-    }
-
-    const counts = {
-      customers: data.customers.length,
-      measurements: (data.measurements ?? []).length,
-      orders: data.orders.length,
+    db.importData(parsed.data!);
+    return {
+      success: true,
+      message: "بیک اپ بحال ہو گیا",
+      counts: {
+        customers: parsed.data!.customers.length,
+        measurements: (parsed.data!.measurements ?? []).length,
+        orders: parsed.data!.orders.length,
+      },
     };
-
-    db.importData(data);
-    return { success: true, message: "بیک اپ بحال ہو گیا", counts };
-  } catch {
+  } catch (e) {
+    console.error("Import error:", e);
     return { success: false, message: "بیک اپ درآمد نہیں ہو سکا" };
   }
+}
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+function parseAndValidate(json: string): {
+  valid: boolean;
+  data?: BackupData;
+  error?: string;
+} {
+  let data: BackupData;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    return { valid: false, error: "فائل درست نہیں — JSON پارس نہیں ہو سکا" };
+  }
+  if (!data || typeof data !== "object") {
+    return { valid: false, error: "فائل درست نہیں — ڈیٹا نہیں ملا" };
+  }
+  if (!Array.isArray(data.customers) || !Array.isArray(data.orders)) {
+    return { valid: false, error: "فائل درست نہیں — گاہک یا آرڈر نہیں ملے" };
+  }
+  return { valid: true, data };
 }

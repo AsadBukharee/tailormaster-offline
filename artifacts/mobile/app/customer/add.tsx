@@ -7,6 +7,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase } from "@/context/DatabaseContext";
+import { saveCustomerPhoto } from "@/utils/photoStorage";
 import { FormField } from "@/components/FormField";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
@@ -36,11 +37,14 @@ export default function AddCustomerScreen() {
     if (!result.canceled) setPhotoUri(result.assets[0].uri);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { setNameError("نام ضروری ہے"); return; }
     setSaving(true);
     try {
-      db.addCustomer({ name: name.trim(), phone: phone.trim(), address: address.trim(), notes: notes.trim(), photoUri });
+      // Generate a temporary id for photo naming, then save customer with the persisted URI
+      const tempId = Date.now().toString();
+      const persistedUri = photoUri ? await saveCustomerPhoto(photoUri, tempId) : "";
+      db.addCustomer({ name: name.trim(), phone: phone.trim(), address: address.trim(), notes: notes.trim(), photoUri: persistedUri });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCelebrating(true);
       setTimeout(() => {

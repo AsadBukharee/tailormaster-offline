@@ -136,7 +136,7 @@ export default function DashboardScreen() {
         {urgentOrders.length > 0 && !bannerDismissed && (
           <TouchableOpacity
             style={[styles.urgentBanner, { backgroundColor: "#D68910" + "15", borderColor: "#D68910" }]}
-            onPress={() => router.push("/(tabs)/orders")}
+            onPress={() => router.push("/orders")}
             activeOpacity={0.8}
           >
             <TouchableOpacity onPress={() => setBannerDismissed(true)} style={{ padding: 4 }}>
@@ -155,14 +155,14 @@ export default function DashboardScreen() {
             value={stats.totalCustomers}
             color={colors.primary}
             icon={<Feather name="users" size={18} color={colors.primary} />}
-            onPress={() => router.push("/(tabs)/index")}
+            onPress={() => router.push("/")}
           />
           <StatCard
             label="فعال آرڈر"
             value={stats.activeOrders}
             color={colors.info}
             icon={<Feather name="clipboard" size={18} color={colors.info} />}
-            onPress={() => router.push("/(tabs)/orders")}
+            onPress={() => router.push("/orders")}
           />
         </View>
         <View style={styles.statsGrid}>
@@ -171,14 +171,14 @@ export default function DashboardScreen() {
             value={`Rs ${stats.totalRevenue.toLocaleString()}`}
             color={colors.success}
             icon={<Feather name="trending-up" size={18} color={colors.success} />}
-            onPress={() => router.push("/income")}
+            onPress={() => router.push("/khata")}
           />
           <StatCard
             label="باقی رقم"
             value={`Rs ${stats.pendingAmount.toLocaleString()}`}
             color={colors.warning}
             icon={<Feather name="alert-circle" size={18} color={colors.warning} />}
-            onPress={() => router.push("/(tabs)/orders")}
+            onPress={() => router.push("/orders")}
           />
         </View>
 
@@ -227,7 +227,7 @@ export default function DashboardScreen() {
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: U }]}>
             حالیہ آرڈر
           </Text>
-          <TouchableOpacity onPress={() => router.push("/(tabs)/orders")}>
+          <TouchableOpacity onPress={() => router.push("/orders")}>
             <Text style={[styles.seeAll, { color: colors.accent, fontFamily: U }]}>سب دیکھیں</Text>
           </TouchableOpacity>
         </View>

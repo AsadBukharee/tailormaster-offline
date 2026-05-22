@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -35,35 +36,45 @@ export async function scheduleOrderNotifications(
   if (!hasPermission) return;
 
   try {
-    const nDaysBefore = new Date(due);
-    nDaysBefore.setDate(nDaysBefore.getDate() - notifyDaysBefore);
-    nDaysBefore.setHours(9, 0, 0, 0);
+    const notifyDaysEnabledStr = await AsyncStorage.getItem("tailormaster_notify_days_enabled");
+    const notifyHoursEnabledStr = await AsyncStorage.getItem("tailormaster_notify_hours_enabled");
+    
+    const notifyDaysEnabled = notifyDaysEnabledStr === null ? true : notifyDaysEnabledStr === "true";
+    const notifyHoursEnabled = notifyHoursEnabledStr === null ? true : notifyHoursEnabledStr === "true";
 
-    if (nDaysBefore > new Date()) {
-      await Notifications.scheduleNotificationAsync({
-        identifier: `order-${orderId}-days`,
-        content: {
-          title: "آرڈر ڈیڈ لائن",
-          body: `${orderDesc} - ${notifyDaysBefore} دن میں ڈیلیوری`,
-          data: { orderId },
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nDaysBefore },
-      });
+    if (notifyDaysEnabled) {
+      const nDaysBefore = new Date(due);
+      nDaysBefore.setDate(nDaysBefore.getDate() - notifyDaysBefore);
+      nDaysBefore.setHours(9, 0, 0, 0);
+
+      if (nDaysBefore > new Date()) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `order-${orderId}-days`,
+          content: {
+            title: "آرڈر ڈیڈ لائن",
+            body: `${orderDesc} - ${notifyDaysBefore} دن میں ڈیلیوری`,
+            data: { orderId },
+          },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nDaysBefore },
+        });
+      }
     }
 
-    const thirtyMinBefore = new Date(due);
-    thirtyMinBefore.setMinutes(thirtyMinBefore.getMinutes() - 30);
+    if (notifyHoursEnabled) {
+      const thirtyMinBefore = new Date(due);
+      thirtyMinBefore.setMinutes(thirtyMinBefore.getMinutes() - 30);
 
-    if (thirtyMinBefore > new Date()) {
-      await Notifications.scheduleNotificationAsync({
-        identifier: `order-${orderId}-30min`,
-        content: {
-          title: "30 منٹ باقی!",
-          body: `${orderDesc} کی ڈیلیوری 30 منٹ میں`,
-          data: { orderId },
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: thirtyMinBefore },
-      });
+      if (thirtyMinBefore > new Date()) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `order-${orderId}-30min`,
+          content: {
+            title: "30 منٹ باقی!",
+            body: `${orderDesc} کی ڈیلیوری 30 منٹ میں`,
+            data: { orderId },
+          },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: thirtyMinBefore },
+        });
+      }
     }
   } catch {}
 }

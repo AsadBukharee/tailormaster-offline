@@ -49,6 +49,7 @@ export interface Order {
 
 export interface KhataEntry {
   id: string;
+  customerId: string;
   type: "income" | "expense";
   amount: number;
   description: string;
@@ -96,9 +97,11 @@ export interface DatabaseContextType {
   deleteOrder: (id: string) => void;
   getStats: () => Stats;
   getKhataEntries: () => KhataEntry[];
+  getCustomerKhataEntries: (customerId: string) => KhataEntry[];
   addKhataEntry: (data: Omit<KhataEntry, "id" | "createdAt">) => KhataEntry;
   deleteKhataEntry: (id: string) => void;
   getKhataStats: () => KhataStats;
+  getCustomerKhataStats: (customerId: string) => KhataStats;
   getExportData: () => ExportData;
   importData: (data: Partial<ExportData>) => void;
 }
@@ -175,6 +178,7 @@ function initDatabase() {
   database.execSync(`
     CREATE TABLE IF NOT EXISTS khata (
       id TEXT PRIMARY KEY,
+      customerId TEXT DEFAULT '',
       type TEXT NOT NULL DEFAULT 'income',
       amount REAL NOT NULL DEFAULT 0,
       description TEXT DEFAULT '',
@@ -182,6 +186,7 @@ function initDatabase() {
       createdAt TEXT NOT NULL
     );
   `);
+  try { database.execSync(`ALTER TABLE khata ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
 }
 
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
@@ -355,12 +360,22 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     } catch { return []; }
   };
 
+  const getCustomerKhataEntries = (customerId: string): KhataEntry[] => {
+    if (Platform.OS === "web") return [];
+    try {
+      return getDb().getAllSync<KhataEntry>(
+        "SELECT * FROM khata WHERE customerId = ? ORDER BY date DESC, createdAt DESC",
+        [customerId]
+      );
+    } catch { return []; }
+  };
+
   const addKhataEntry = (data: Omit<KhataEntry, "id" | "createdAt">): KhataEntry => {
     const entry: KhataEntry = { id: generateId(), ...data, createdAt: new Date().toISOString() };
     if (Platform.OS !== "web") {
       getDb().runSync(
-        "INSERT INTO khata (id,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?)",
-        [entry.id, entry.type, entry.amount, entry.description, entry.date, entry.createdAt]
+        "INSERT INTO khata (id,customerId,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?,?)",
+        [entry.id, entry.customerId || "", entry.type, entry.amount, entry.description, entry.date, entry.createdAt]
       );
     }
     return entry;
@@ -377,6 +392,22 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       const database = getDb();
       const totalIncome = database.getFirstSync<{ total: number | null }>("SELECT SUM(amount) as total FROM khata WHERE type='income'")?.total ?? 0;
       const totalExpense = database.getFirstSync<{ total: number | null }>("SELECT SUM(amount) as total FROM khata WHERE type='expense'")?.total ?? 0;
+      return { totalIncome, totalExpense, net: totalIncome - totalExpense };
+    } catch { return { totalIncome: 0, totalExpense: 0, net: 0 }; }
+  };
+
+  const getCustomerKhataStats = (customerId: string): KhataStats => {
+    if (Platform.OS === "web") return { totalIncome: 0, totalExpense: 0, net: 0 };
+    try {
+      const database = getDb();
+      const totalIncome = database.getFirstSync<{ total: number | null }>(
+        "SELECT SUM(amount) as total FROM khata WHERE type='income' AND customerId=?",
+        [customerId]
+      )?.total ?? 0;
+      const totalExpense = database.getFirstSync<{ total: number | null }>(
+        "SELECT SUM(amount) as total FROM khata WHERE type='expense' AND customerId=?",
+        [customerId]
+      )?.total ?? 0;
       return { totalIncome, totalExpense, net: totalIncome - totalExpense };
     } catch { return { totalIncome: 0, totalExpense: 0, net: 0 }; }
   };
@@ -428,8 +459,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       for (const k of (data.khata ?? [])) {
         try {
           database.runSync(
-            "INSERT OR REPLACE INTO khata (id,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?)",
-            [k.id, k.type ?? "income", k.amount ?? 0, k.description ?? "", k.date, k.createdAt]
+            "INSERT OR REPLACE INTO khata (id,customerId,type,amount,description,date,createdAt) VALUES (?,?,?,?,?,?,?)",
+            [k.id, k.customerId ?? "", k.type ?? "income", k.amount ?? 0, k.description ?? "", k.date, k.createdAt]
           );
         } catch {}
       }
@@ -440,7 +471,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     isReady, getCustomers, getCustomer, addCustomer, updateCustomer, deleteCustomer,
     getMeasurements, getMeasurement, addMeasurement, updateMeasurement, deleteMeasurement,
     getOrders, getOrder, getCustomerOrders, addOrder, updateOrder, deleteOrder, getStats,
-    getKhataEntries, addKhataEntry, deleteKhataEntry, getKhataStats,
+    getKhataEntries, getCustomerKhataEntries, addKhataEntry, deleteKhataEntry, getKhataStats, getCustomerKhataStats,
     getExportData, importData,
   };
 
